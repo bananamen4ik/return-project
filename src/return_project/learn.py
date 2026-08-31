@@ -1,31 +1,54 @@
-def count_to_three():
-    yield 1
-    yield 2
-    yield 3
+users = ["Armen", "John", "Alex"]
 
+for index, name in enumerate(users, start=1):
+    print(f"{index}. {name}")
 
-counter = count_to_three()
-print(next(counter))
-print(next(counter))
-print(next(counter))
+names = ["Armen", "John", "Alex"]
+ages = [27, 30, 25]
 
+print(list(zip(names, ages)))
 
-def count_to(limit):
-    count = 1
+names = ["Armen", "John", "Alex"]
+ages = [27, 30]
 
-    while count <= limit:
-        yield count
-        count += 1
+print(list(zip(names, ages)))
 
+# Будет [("Armen", 27), ("John", 30)] так как zip останавливается на самом коротком объекте
 
-counter = count_to(3)
-print(next(counter))
-print(next(counter))
-print(next(counter))
+numbers = [10, 20, -5, 30, 40]
 
-counter = count_to(3)
-for i in counter:
-    print(i)
+print(any([number < 0 for number in numbers]))
 
-# Генератор отличается от моего итератора тем, что здесь используются функции и конструкция yield, и даже не нужно самому вызывать StopIteration, при завершении next сам понимает
-# Да и насколько я знаю по сути генераторы нужны для оптимизации программы, чтобы не высчитывать все сразу, а по мере необходимости, когда как итераторы идут по конкретной готовой уже коллекции зачастую
+numbers = [10, 20, 5, 30, 40]
+
+print(all(number > 0 for number in numbers))
+
+numbers = [10, 20, -5, 30, 40]
+
+print(all(number > 0 for number in numbers))
+
+users = [
+    {"name": "Armen", "age": 27},
+    {"name": "John", "age": 30},
+    {"name": "Alex", "age": 25},
+]
+
+print(sorted(users, key=lambda user: user["age"]))
+print(sorted(users, key=lambda user: user["age"], reverse=True))
+
+numbers = [1, 2, 3, 4, 5]
+
+print(list(reversed(numbers)))
+
+users = [
+    {"name": "Armen", "age": 27},
+    {"name": "John", "age": 17},
+    {"name": "Alex", "age": 25},
+    {"name": "Maria", "age": 16},
+]
+
+print(any(user["age"] < 18 for user in users))
+print(all(user["age"] >= 18 for user in users))
+print(sorted(users, key=lambda user: user["age"]))
+for index, user in enumerate(users):
+    print(f"{index}. {user['name']}")
