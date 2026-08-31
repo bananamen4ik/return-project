@@ -1,54 +1,65 @@
-users = ["Armen", "John", "Alex"]
+# numbers = [1, 2, 3, 4, 5]
 
-for index, name in enumerate(users, start=1):
-    print(f"{index}. {name}")
 
-names = ["Armen", "John", "Alex"]
-ages = [27, 30, 25]
+# print(list(map(lambda number: number * 10, numbers)))
 
-print(list(zip(names, ages)))
+# def square(number):
+#     return number ** 2
+#
+#
+# print(list(map(square, numbers)))
 
-names = ["Armen", "John", "Alex"]
-ages = [27, 30]
+# numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+#
+# print(list(filter(lambda number: number % 2 == 0, numbers)))
 
-print(list(zip(names, ages)))
+# def is_adult(age):
+#     return age >= 18
+#
+#
+# ages = [12, 17, 18, 25, 15, 30]
+#
+# print(list(filter(is_adult, ages)))
 
-# Будет [("Armen", 27), ("John", 30)] так как zip останавливается на самом коротком объекте
+# numbers = [1, 2, 3]
+#
+# result = map(lambda x: x * 10, numbers)
+#
+# print(next(result))  # 10
+# print(next(result))  # 20
+# print(list(result))  # [30]
 
-numbers = [10, 20, -5, 30, 40]
 
-print(any([number < 0 for number in numbers]))
+# numbers = [1, 2, 3, 4, 5, 6]
+#
+# print(
+#     list(
+#         map(
+#             lambda number: number * 10,
+#             filter(lambda number: number % 2 == 0, numbers)
+#         )
+#     )
+# )
 
-numbers = [10, 20, 5, 30, 40]
+numbers = [1, 2, 3, 4, 5, 6]
 
-print(all(number > 0 for number in numbers))
+print(
+    list(
+        map(
+            lambda number: number ** 2,
+            filter(lambda number: number % 2 == 0, numbers)
+        )
+    )
+)
 
-numbers = [10, 20, -5, 30, 40]
+print([
+    number ** 2
+    for number in numbers
+    if number % 2 == 0
+])  # Этот вариант более читабельный, так как менее громоздкий
 
-print(all(number > 0 for number in numbers))
-
-users = [
-    {"name": "Armen", "age": 27},
-    {"name": "John", "age": 30},
-    {"name": "Alex", "age": 25},
-]
-
-print(sorted(users, key=lambda user: user["age"]))
-print(sorted(users, key=lambda user: user["age"], reverse=True))
-
-numbers = [1, 2, 3, 4, 5]
-
-print(list(reversed(numbers)))
-
-users = [
-    {"name": "Armen", "age": 27},
-    {"name": "John", "age": 17},
-    {"name": "Alex", "age": 25},
-    {"name": "Maria", "age": 16},
-]
-
-print(any(user["age"] < 18 for user in users))
-print(all(user["age"] >= 18 for user in users))
-print(sorted(users, key=lambda user: user["age"]))
-for index, user in enumerate(users):
-    print(f"{index}. {user['name']}")
+# Разница между result = map(...) и result = list(map(...))
+# В первом варианте возвращается итератор, по которому можно лениво идти
+# Во втором варианте уже готовый список
+# Лениво в первом случае проходят из-за того, что мы по мере необходимости
+# идем по итератору и не вычисляем все сразу
