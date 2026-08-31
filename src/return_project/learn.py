@@ -1,65 +1,81 @@
-# numbers = [1, 2, 3, 4, 5]
+def greet(name):
+    return f"Hello, {name}"
 
 
-# print(list(map(lambda number: number * 10, numbers)))
+say_hello = greet
+print(say_hello("Armen"))
 
-# def square(number):
-#     return number ** 2
-#
-#
-# print(list(map(square, numbers)))
-
-# numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-#
-# print(list(filter(lambda number: number % 2 == 0, numbers)))
-
-# def is_adult(age):
-#     return age >= 18
-#
-#
-# ages = [12, 17, 18, 25, 15, 30]
-#
-# print(list(filter(is_adult, ages)))
-
-# numbers = [1, 2, 3]
-#
-# result = map(lambda x: x * 10, numbers)
-#
-# print(next(result))  # 10
-# print(next(result))  # 20
-# print(list(result))  # [30]
+def apply(func, value):
+    return func(value)
 
 
-# numbers = [1, 2, 3, 4, 5, 6]
-#
-# print(
-#     list(
-#         map(
-#             lambda number: number * 10,
-#             filter(lambda number: number % 2 == 0, numbers)
-#         )
-#     )
-# )
+def double(number):
+    return number * 2
 
-numbers = [1, 2, 3, 4, 5, 6]
 
-print(
-    list(
-        map(
-            lambda number: number ** 2,
-            filter(lambda number: number % 2 == 0, numbers)
-        )
-    )
-)
+print(apply(double, 10))
 
-print([
-    number ** 2
-    for number in numbers
-    if number % 2 == 0
-])  # Этот вариант более читабельный, так как менее громоздкий
+square = lambda x: x ** 2
+print(square(5))
 
-# Разница между result = map(...) и result = list(map(...))
-# В первом варианте возвращается итератор, по которому можно лениво идти
-# Во втором варианте уже готовый список
-# Лениво в первом случае проходят из-за того, что мы по мере необходимости
-# идем по итератору и не вычисляем все сразу
+numbers = [1, 2, 3, 4, 5]
+
+print(list(map(lambda x: x ** 2, numbers)))
+
+users = [
+    {"name": "Armen", "age": 27},
+    {"name": "John", "age": 30},
+    {"name": "Alex", "age": 25},
+    {"name": "Maria", "age": 22},
+]
+
+print(sorted(users, key=lambda x: x["age"]))
+print(sorted(users, key=lambda x: len(x["name"])))
+
+def apply_operation(func, a, b):
+    return func(a, b)
+
+
+def add(a, b):
+    return a + b
+
+
+def multiply(a, b):
+    return a * b
+
+
+print(apply_operation(add, 10, 5))  # 15
+print(apply_operation(multiply, 10, 5))  # 50
+
+def make_multiplier(multiplier):
+    def multiply(x):
+        return x * multiplier
+
+    return multiply
+
+
+double = make_multiplier(2)
+triple = make_multiplier(3)
+
+print(double(10))  # 20
+print(triple(10))  # 30
+
+def make_counter():
+    count = 0
+
+    def counter():
+        nonlocal count
+        count += 1
+        return count
+
+    return counter
+
+
+counter = make_counter()
+
+print(counter())  # 1
+print(counter())  # 2
+print(counter())  # 3
+
+# count не сбрасывается так как counter один и тот же объект в котором
+# сохранена переменная count замыканием и с ней происходит взаимодействие каждый раз при вызове
