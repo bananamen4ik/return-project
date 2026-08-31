@@ -1,78 +1,127 @@
-users = ["Armen", "John", "Alex"]
+from dataclasses import dataclass
 
-for index, name in enumerate(users, start=1):
-    print(f"{index}. {name}")
 
-names = ["Armen", "John", "Alex"]
-ages = [27, 30, 25]
+@dataclass
+class Product:
+    name: str
+    price: float
+    quantity: int
 
-print({
-    name: age
-    for name, age in zip(names, ages)
-})
 
-ages = [15, 16, 17, 20]
+product = Product("MacBook", 2000, 2)
 
-print(any(map(lambda age: age >= 18, ages)))
+print(product)
 
-ages = [20, 25, 30, 19]
+from dataclasses import dataclass
 
-print(all(map(lambda age: age >= 18, ages)))
 
-numbers = [1, 2, 3, 4, 5]
-print(list(map(lambda x: x * 10, numbers)))
-# Тип до list generator хотел написать, затем проверил и type показывает map почему?
+@dataclass
+class Product:
+    name: str
+    price: float
+    quantity: int
+    is_available: bool = True
 
-numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
-print(list(filter(lambda x: x % 2 == 0, numbers)))
+product = Product("MacBook", 2000, 2)
+print(product)
+product = Product("MacBook", 2000, 2, False)
+print(product)
 
-users = [
-    {"name": "Armen", "age": 27},
-    {"name": "John", "age": 20},
-    {"name": "Alex", "age": 35},
-    {"name": "Maria", "age": 25},
-]
+from dataclasses import dataclass, field
 
-print(sorted(users, key=lambda x: x["age"], reverse=True))
 
-numbers = [3, 1, 2]
+@dataclass
+class User:
+    name: str
+    skills: list[str] = field(default_factory=list)
 
-result = sorted(numbers)
 
-print(result)  # [1, 2, 3]
-print(numbers)  # [3, 1, 2]
-# Отличие от numbers.sort(), что numbers.sort() изменяет сам список, а sorted новый возвращает отсортированный
+user1 = User("Armen")
+user2 = User("John")
 
-names = ["Armen", "John", "Alex"]
-scores = [95, 87, 91]
+user1.skills.append("Python")
 
-for index, user in enumerate(zip(names, scores), start=1):
-    print(f"{index}. {user[0]} - {user[1]}")
+print(user1)
+print(user2)
 
-a = [1, 2, 3]
-b = [4, 5]
-c = [6, 7]
 
-from itertools import chain
+def calculate_total(price: float, quantity: int, discount: float) -> float:
+    ...
 
-print(list(chain(a, b, c)))
 
-numbers = [1, 2, 3, 4]
+def get_user(user_id: int) -> dict[str, str | int] | None:
+    ...
 
-result = map(lambda x: x * 2, numbers)
 
-print(list(result))  # [2, 4, 6, 8]
-print(list(result))  # [] так как result уже полностью весь пройден предыдущим вызовом
+# Означает что функция принимает user_id integer и возвращает либо (словарь где ключ это str, значение str или int), либо None
 
-users = [
-    {"name": "Armen", "age": 27, "active": True},
-    {"name": "John", "age": 17, "active": True},
-    {"name": "Alex", "age": 30, "active": False},
-    {"name": "Maria", "age": 25, "active": True},
-]
+from collections.abc import Iterable
 
-print([
-    user["name"]
-    for user in filter(lambda user: (user["age"] >= 18 and user["active"]), users)
-])
+numbers: list[int] = [1, 2, 3, 4, 5]
+
+
+def get_even_numbers(numbers: Iterable[int]) -> list[int]:
+    ...
+
+
+from collections.abc import Callable
+
+
+def apply_operation(func: Callable[[int], int], number: int) -> int:
+    return func(number)
+
+
+def square(x: int) -> int:
+    return x ** 2
+
+
+print(apply_operation(square, 5))
+#
+# Разница между list[int], Iterable[int] и Iterator[int] в том что:
+# list[int] ожидается list с элементами int
+# Iterable[int] любой объект, у которого есть итератор и по нему можно пройтись и вернет int
+# Iterator[int] напрямую ожидается итератор который возвращает int
+#
+# почему list[int] уже конкретная структура данных, а Iterable[int] описывает более широкий набор объектов?
+# Потому что Iterable может выступать множество разных структур данных у которых есть итератор, а list это одна из
+
+from dataclasses import dataclass, field
+from collections.abc import Iterable
+
+
+@dataclass
+class User:
+    id: int
+    name: str
+    age: int
+    skills: list[str] = field(default_factory=list)
+    is_active: bool = True
+
+
+def get_active_users(users: Iterable[User]) -> list[User]:
+    return list(users)
+
+
+user1: User = User(1, "Armen", 27, skills=["Python", "Django"])
+user2: User = User(2, "John", 30)
+
+print(get_active_users((user1, user2)))
+
+
+@dataclass
+class User:
+    name: str
+    skills: list[str] = field(default_factory=list)
+
+
+user1 = User("Armen")
+user2 = User("John")
+
+user1.skills.append("Python")
+
+print(user1.skills)  # ["Python"]
+print(user2.skills)  # []
+
+# И почему здесь default_factory=list, а не просто skills: list[str] = []?
+# Потому что list это mutable коллекция и чтобы не сделать для всех единый список есть специальная функция field
