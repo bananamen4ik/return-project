@@ -1,156 +1,106 @@
-def log_call(func):
-    def wrapper(*args, **kwargs):
-        print("Calling function")
-        return func(*args, **kwargs)
+class MyContext:
+    def __enter__(self):
+        print("Enter")
 
-    return wrapper
-
-
-@log_call
-def greet():
-    print("Hello")
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        print("Exit")
 
 
-greet()
+with MyContext():
+    print("Inside")
 
 
-def around(func):
-    def wrapper(*args, **kwargs):
-        print("Before")
-        result = func(*args, **kwargs)
-        print("After")
+class MyContext:
+    def __enter__(self):
+        return self
 
-        return result
-
-    return wrapper
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
 
 
-@around
-def greet():
-    print("Hello")
+with MyContext() as context:
+    print(context)
 
 
-greet()
+class MyContext:
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        print("Error:", exc_val)
 
 
-def log_call(func):
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-
-    return wrapper
+with MyContext():
+    raise ValueError("Something went wrong")
 
 
-@log_call
-def greet(name):
-    return f"Hello, {name}"
+class IgnoreErrors:
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return True
 
 
-result = greet("Armen")
-print(result)
+with IgnoreErrors():
+    raise ValueError("Boom")
+
+print("Continues")
+
+from contextlib import contextmanager
 
 
-def log_call(func):
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-
-    return wrapper
-
-
-@log_call
-def add(a, b):
-    return a + b
+@contextmanager
+def my_context():
+    print("Enter")
+    try:
+        yield
+    finally:
+        print("Exit")
 
 
-@log_call
-def introduce(name, age):
-    return f"{name}: {age}"
+with my_context():
+    print("Inside")
+
+from contextlib import contextmanager
 
 
-print(add(1, 2))
-print(introduce("Armen", 27))
-
-from functools import wraps
-
-
-def log_call(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-
-    return wrapper
+@contextmanager
+def managed_resource():
+    value = "Resource"
+    print(value, "acquired")
+    yield value
+    print(value, "released")
 
 
-@log_call
-def greet():
-    """Greeting function."""
-    print("Hello")
+with managed_resource() as resource:
+    print(resource)
 
 
-print(greet.__name__)
-print(greet.__doc__)
+class Test:
+    def __enter__(self):
+        print("1")
+        return "hello"
 
-from functools import wraps
-
-
-def log_result(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        result = func(*args, **kwargs)
-        print(f"Result: {result}")
-        return result
-
-    return wrapper
+    def __exit__(self, exc_type, exc_value, traceback):
+        print("4")
 
 
-@log_result
-def add(a, b):
-    return a + b
+with Test() as value:
+    print("2")
+    print(value)
+    print("3")
 
+# Сначала выведется 1, затем 2, hello, 3, 4. То есть сначала enter, затем тело, затем exit.
+# 1. Что попадёт в value? В value попадет hello
+# 2. Почему __exit__() вызывается после print("3")? Потому что вызывается он только после выполнения тела или при исключении
+# 3. Что будет с исключением, если __exit__() вернёт True? Программа продолжится дальше без проброса исключения выше
+# 4. 1. Что будет, если вернёт False? Тогда исключения пробросится выше
 
-result = add(10, 20)
-print(result)
+with open("data.txt") as f:
+    data = f.read()
+# with лучше, так как надежней в плане что не забудешь закрыть ресурс например,
+# меньше повторения кода
 
-from functools import wraps
-
-
-def repeat(count):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            for _ in range(count):
-                func(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
-
-
-@repeat(3)
-def hello():
-    print("Hello")
-
-
-hello()
-
-
-def decorator(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        print("Before")
-        result = func(*args, **kwargs)
-        print("After")
-        return result
-
-    return wrapper
-
-
-@decorator
-def add(a, b):
-    return a + b
-
-# Здесь функция add к которой применяется декоратор decorator. При запуске add по сути выполняется
-# wrapper (если еще углубиться, то вызывается внутренняя функция декоратора wraps который готовит
-# необходимые метаданные исходной функции. И в итоге выводится Before, затем вызывается исходная функция
-# add, значение записывается в result, выводится After и result возвращается.
-# Ответ на вопрос: "почему wrapper всё ещё может вызвать исходный add, хотя decorator() уже завершилась."
-# Потому что add переменная после замыкания которую помнит wrapper
+# И почему try/finally по смыслу очень близок к тому, что делает context manager?
+# так как try/finally смысл схож что в любом случае выполнится блок finally который закроет к примеру ресурс
