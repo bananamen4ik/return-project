@@ -1,106 +1,116 @@
-class MyContext:
-    def __enter__(self):
-        print("Enter")
+def generate_numbers():
+    count = 1
+    limit = 5
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        print("Exit")
-
-
-with MyContext():
-    print("Inside")
+    while count <= limit:
+        yield count
+        count += 1
 
 
-class MyContext:
-    def __enter__(self):
-        return self
+gen = generate_numbers()
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
+print(next(gen))
+print(next(gen))
+print(next(gen))
+print(next(gen))
+print(next(gen))
 
+def countdown(n):
+    count = n
 
-with MyContext() as context:
-    print(context)
-
-
-class MyContext:
-    def __enter__(self):
-        pass
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        print("Error:", exc_val)
+    while count > 0:
+        yield count
+        count -= 1
 
 
-with MyContext():
-    raise ValueError("Something went wrong")
+for number in countdown(5):
+    print(number)
+
+def squares(numbers):
+    for number in numbers:
+        yield number ** 2
 
 
-class IgnoreErrors:
-    def __enter__(self):
-        pass
+for number in squares([1, 2, 3, 4]):
+    print(number)
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        return True
+def counter():
+    count = 0
 
-
-with IgnoreErrors():
-    raise ValueError("Boom")
-
-print("Continues")
-
-from contextlib import contextmanager
+    while True:
+        yield count
+        count += 1
 
 
-@contextmanager
-def my_context():
-    print("Enter")
-    try:
-        yield
-    finally:
-        print("Exit")
+gen = counter()
+
+print(next(gen))
+print(next(gen))
+print(next(gen))
+print(next(gen))
+print(next(gen))
+
+numbers = (number ** 2 for number in range(1, 11) if number % 2 == 0)
+print(type(numbers))
+
+for number in numbers:
+    print(number)
+
+def test():
+    print("A")
+    yield 10
+    print("B")
+    yield 20
+    print("C")
+
+# При присвоении gen = test() будет создан объект генератора и выполнен print("A")
+# Первый вызов next(gen) = вернет 10. Следующий вызов print("B") и вернет 20, следующий
+# print("C") и StopIteration исключение
+
+generator = test()
+
+print("X")
+print(next(generator))
+print("Y")
+print(next(generator))
+print("Z")
+
+# При присвоении generator = test() будет создан объект генератора и выполнен print("A")
+# затем print("X"), далее print("A") и yield 10, далее print("Y"), далее print("B") и yield 20,
+# далее print("Z")
+
+def counter():
+    value = 0
+
+    while value < 3:
+        yield value
+        value += 1
 
 
-with my_context():
-    print("Inside")
+generator = counter()
 
-from contextlib import contextmanager
+print(next(generator))  # 0
+print(next(generator))  # 1
+print(next(generator))  # 2
 
+# И главное: почему value не сбрасывается в 0 при каждом next()? Потому что работаем внутри того же объекта generator
+# у которого при создании создалась и помнится переменная value, yield не завершает функцию
 
-@contextmanager
-def managed_resource():
-    value = "Resource"
-    print(value, "acquired")
-    yield value
-    print(value, "released")
+numbers = [x * 2 for x in range(1_000_000)]
+numbers = (x * 2 for x in range(1_000_000))
 
+# Разница между ними в том что первый это list comprehension сразу создает список из миллиона элементов
+# второй это генератор, который создает только объект генератора и ждем вызова next, чтобы выдать следующий элемент
+# Что создаётся сразу? список
+# Где хранятся вычисленные значения? Внутри итератора
+# Что происходит при next() во втором варианте? Перебор элементов следующих
+# 1. Почему генератор может быть выгоднее по памяти? Потому что в память не загружаются все данные, а выдаются лениво по мере вызова next
 
-with managed_resource() as resource:
-    print(resource)
-
-
-class Test:
-    def __enter__(self):
-        print("1")
-        return "hello"
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        print("4")
+def read_numbers(numbers):
+    return (number for number in numbers if number > 10)
 
 
-with Test() as value:
-    print("2")
-    print(value)
-    print("3")
+numbers = [5, 15, 3, 20, 8, 30]
 
-# Сначала выведется 1, затем 2, hello, 3, 4. То есть сначала enter, затем тело, затем exit.
-# 1. Что попадёт в value? В value попадет hello
-# 2. Почему __exit__() вызывается после print("3")? Потому что вызывается он только после выполнения тела или при исключении
-# 3. Что будет с исключением, если __exit__() вернёт True? Программа продолжится дальше без проброса исключения выше
-# 4. 1. Что будет, если вернёт False? Тогда исключения пробросится выше
-
-with open("data.txt") as f:
-    data = f.read()
-# with лучше, так как надежней в плане что не забудешь закрыть ресурс например,
-# меньше повторения кода
-
-# И почему try/finally по смыслу очень близок к тому, что делает context manager?
-# так как try/finally смысл схож что в любом случае выполнится блок finally который закроет к примеру ресурс
+for number in read_numbers(numbers):
+    print(number)
