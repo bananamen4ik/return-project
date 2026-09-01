@@ -1,133 +1,145 @@
-class User:
-    def __init__(self, name: str):
-        self.name = name
+class Team:
+    def __init__(self, members):
+        self.members = members
 
-    def greet(self) -> str:
-        return f"Hello, {self.name}!"
-
-
-class User:
-    def __init__(self, name: str, age: int):
-        self.name = name
-        self.age = age
-
-    @classmethod
-    def from_string(cls, value: str):
-        value_parts = value.split(",")
-        return cls(value_parts[0], int(value_parts[1]))
+    def __len__(self):
+        return len(self.members)
 
 
-user = User.from_string("Armen,27")
-print(user.name, user.age)
+team = Team(["Armen", "John"])
 
-
-class User:
-
-    @classmethod
-    def create(cls):
-        return cls()
-
-
-class Admin(User):
-    pass
-
-
-user = Admin.create()  # Вернется экземпляр Admin
-
-print(type(user))  # Admin, так как cls смотрит текущий класс который вызывается
-
-
-class MathUtils:
-    @staticmethod
-    def is_even(number):
-        return number % 2 == 0
-
-
-print(MathUtils.is_even(10))  # True
-print(MathUtils.is_even(7))  # False
-
-user.get_full_name() - обычный
-метод
-User.from_string("Armen,27") - classmethod
-User.calculate_something(10, 20) - staticmethod
-
-
-class User:
-    def __init__(self, first_name, last_name):
-        self.first_name = first_name
-        self.last_name = last_name
-
-    @property
-    def full_name(self):
-        return f"{self.first_name} {self.last_name}"
-
-
-user = User("Armen", "Doe")
-
-print(user.full_name)
-
-
-class Product:
-    def __init__(self, price):
-        self.price = price
-
-    @property
-    def price(self):
-        return self._price
-
-    @price.setter
-    def price(self, price):
-        if price < 0:
-            raise ValueError("Price cannot be negative")
-        self._price = price
-
-
-product = Product(100)
-product.price = -100
-print(product.price)
+print(len(team))
 
 
 class User:
     def __init__(self, name, age):
-        self.name = name
-        self.age = age
+        self.data = {
+            "name": name,
+            "age": age
+        }
 
-    def __str__(self):
-        return f"{self.name}, {self.age}"
-
-    def __repr__(self):
-        return f"User(name='{self.name}', age={self.age})"
+    def __getitem__(self, item):
+        return self.data[item]
 
 
 user = User("Armen", 27)
-print(user)
-print(repr(user))
+print(user["name"])
+print(user["age"])
+
+
+class Team:
+    def __init__(self, members):
+        self.members = members
+
+    def __contains__(self, member):
+        return member in self.members
+
+
+team = Team(["Armen", "John"])
+
+print("Armen" in team)
+
+
+class Team:
+    def __init__(self, members):
+        self.members = members
+
+    def __iter__(self):
+        return iter(self.members)
+
+
+team = Team(["Armen", "John"])
+
+for member in team:
+    print(member)
+
+
+class Counter:
+    def __init__(self, limit):
+        self.count = 1
+        self.limit = limit
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.count > self.limit:
+            raise StopIteration
+
+        current = self.count
+        self.count += 1
+
+        return current
+
+
+for count in Counter(5):
+    print(count)
+
+
+class Multiplier:
+    def __init__(self, value):
+        self.value = value
+
+    def __call__(self, number):
+        return self.value * number
+
+
+double = Multiplier(2)
+
+print(double(10))
+print(double(5))
+
+
+class DatabaseConnection:
+    def __enter__(self):
+        print("Connected")
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        print("Disconnected")
+
+
+with DatabaseConnection():
+    print("Working")
+
+with DatabaseConnection():
+    raise ValueError("Something went wrong")
 
 
 class User:
-    def __init__(self, name, age):
-        self.name = name
-        self.age = age
+    def __init__(self, user_id):
+        self.user_id = user_id
 
-    def __str__(self):
-        return f"{self.name}, {self.age}"
-
-    @classmethod
-    def from_string(cls, string):
-        name, age = string.split(",")
-        return cls(name, int(age))
-
-    @property
-    def is_adult(self):
-        return self.age >= 18
+    def __eq__(self, user):
+        return self.user_id == user.user_id
 
 
-user = User.from_string("Armen,27")
-print(user)
+print(User(1) == User(1))
+print(User(1) == User(2))
 
-# user.greet() отличается тем что вызывается экземпляр и работа происходит с self
-# User.from_string(...) здесь доступ есть только к cls если используется classmethod
-# User.is_something(...) если реализовано через staticmethod, то нет доступа к self и cls
+user1 = User(1)
+user2 = User(1)
 
-# Когда тебе нужен self, когда cls, а когда вообще ничего не нужно?
-# self если нужно взаимодействие с данными экземпляра, cls если только доступ к классу, если ни то, ни другое то staticmethod
+print(user1 is user2)
+
+for x in obj:
+    print(x)
+
+# в obj ищется итератор и возвращается объект с итератором, далее в объекте-итераторе поочередно вызывается next и возвращается значение до исключения StopIteration
+# iter(obj) - Вызывается __iter__
+# next(iterator) - Вызывается __next__
+# StopIteration - исключение, которое завершает итерации
+
+# len(obj) - __len__
+# obj["name"] - __getitem__
+# "name" in obj - __contains__
+# for x in obj: - __iter__, __next__
+# obj() - __call__
+# with obj: - __enter__, __exit__
+
+# Разница между Iterable и Iterator и Generator в том, что:
+# Iterable это объект по которому можно пройти итератором, поддерживает перебор, коллекции типа list, dict, set, tuple
+# Iterator это сама реализация протокола в объекте для прохода по элементам объекта
+# Generator это метод создания итератора через функцию с помощью yield
+
+# Является ли каждый generator iterator'ом? Да
+# Является ли каждый iterator generator'ом? Нет
