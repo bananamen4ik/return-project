@@ -1,145 +1,106 @@
-class Team:
-    def __init__(self, members):
-        self.members = members
-
-    def __len__(self):
-        return len(self.members)
+import asyncio
 
 
-team = Team(["Armen", "John"])
-
-print(len(team))
-
-
-class User:
-    def __init__(self, name, age):
-        self.data = {
-            "name": name,
-            "age": age
-        }
-
-    def __getitem__(self, item):
-        return self.data[item]
+async def hello():
+    return "Hello"
 
 
-user = User("Armen", 27)
-print(user["name"])
-print(user["age"])
+async def main():
+    print(await hello())
 
 
-class Team:
-    def __init__(self, members):
-        self.members = members
+asyncio.run(main())
 
-    def __contains__(self, member):
-        return member in self.members
+async def get_number():
+    return 42
 
 
-team = Team(["Armen", "John"])
-
-print("Armen" in team)
-
-
-class Team:
-    def __init__(self, members):
-        self.members = members
-
-    def __iter__(self):
-        return iter(self.members)
+async def main():
+    result = await get_number()
+    print(result)
+    print(type(result))
 
 
-team = Team(["Armen", "John"])
+asyncio.run(main())
 
-for member in team:
-    print(member)
-
-
-class Counter:
-    def __init__(self, limit):
-        self.count = 1
-        self.limit = limit
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        if self.count > self.limit:
-            raise StopIteration
-
-        current = self.count
-        self.count += 1
-
-        return current
+async def first():
+    print("first")
+    return 1
 
 
-for count in Counter(5):
-    print(count)
+async def second():
+    print("second")
+    return 2
 
 
-class Multiplier:
-    def __init__(self, value):
-        self.value = value
+async def main():
+    a = await first()
+    b = await second()
 
-    def __call__(self, number):
-        return self.value * number
-
-
-double = Multiplier(2)
-
-print(double(10))
-print(double(5))
+    print(a, b)
 
 
-class DatabaseConnection:
-    def __enter__(self):
-        print("Connected")
+asyncio.run(main())
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        print("Disconnected")
+# После запуска будет print("first"), return 1, print("second"), return 2, print(a, b)
 
 
-with DatabaseConnection():
-    print("Working")
-
-with DatabaseConnection():
-    raise ValueError("Something went wrong")
-
-
-class User:
-    def __init__(self, user_id):
-        self.user_id = user_id
-
-    def __eq__(self, user):
-        return self.user_id == user.user_id
+async def first():
+    print("first start")
+    await asyncio.sleep(1)
+    print("first end")
 
 
-print(User(1) == User(1))
-print(User(1) == User(2))
+async def second():
+    print("second start")
+    await asyncio.sleep(1)
+    print("second end")
 
-user1 = User(1)
-user2 = User(1)
 
-print(user1 is user2)
+async def main():
+    await first()
+    await second()
 
-for x in obj:
-    print(x)
+#  После запуска займет примерно 2 секунды из-за двух asyncio.sleep которые приостанавливают выполнение
 
-# в obj ищется итератор и возвращается объект с итератором, далее в объекте-итераторе поочередно вызывается next и возвращается значение до исключения StopIteration
-# iter(obj) - Вызывается __iter__
-# next(iterator) - Вызывается __next__
-# StopIteration - исключение, которое завершает итерации
+async def foo():
+    return 10
 
-# len(obj) - __len__
-# obj["name"] - __getitem__
-# "name" in obj - __contains__
-# for x in obj: - __iter__, __next__
-# obj() - __call__
-# with obj: - __enter__, __exit__
+result = foo()
 
-# Разница между Iterable и Iterator и Generator в том, что:
-# Iterable это объект по которому можно пройти итератором, поддерживает перебор, коллекции типа list, dict, set, tuple
-# Iterator это сама реализация протокола в объекте для прохода по элементам объекта
-# Generator это метод создания итератора через функцию с помощью yield
+print(result)
+print(type(result))
 
-# Является ли каждый generator iterator'ом? Да
-# Является ли каждый iterator generator'ом? Нет
+# Что находится в result? - Находится courutine object
+# Почему там не 10? - Потому что не вызывается с помощью await который начинает выполнение
+# Выполнялась ли foo()?  Нет, только создан объект корутины
+
+async def main(): # нужно было добавить async, так как await может использоваться только в асинхронном контексте
+    result = await get_data()
+    print(result)
+
+# def foo(): отличается от async def foo():, тем, что это обычная функция и при вызове она сразу выполняется
+# а async создает корутину и ждем await чтобы выполниться асинхронно
+
+# foo() вернет coroutine object, если объявлена с помощью async
+
+# await foo() выполняет функцию корутину
+
+# asyncio.run(main()) нужен чтобы запустить выполнение верхней корутины, я так понимаю запускатеся event loop
+
+async def foo():
+    print("A")
+    await asyncio.sleep(1)
+    print("B")
+
+
+async def main():
+    print("C")
+    await foo()
+    print("D")
+
+
+asyncio.run(main())
+
+# Запускается main(), print("C"), print("A"), ожидание 1 сек, print("B"), print("D")
+# Будет порядок: C, A, B, D. Такой порядок из-за вызовов выше
