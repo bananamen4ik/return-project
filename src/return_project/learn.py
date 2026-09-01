@@ -1,140 +1,149 @@
 import asyncio
 
 
-async def worker(name, delay):
-    await asyncio.sleep(delay)
-    return name
+async def worker():
+    print("start")
+
+    try:
+        await asyncio.sleep(5)
+    except asyncio.CancelledError:
+        print("cancelled")
+        raise
+
+    print("end")
 
 
 async def main():
-    tasks = [
-        asyncio.create_task(worker("A", 3)),
-        asyncio.create_task(worker("B", 1)),
-        asyncio.create_task(worker("C", 2)),
-    ]
+    task = asyncio.create_task(worker())
 
-    for task in asyncio.as_completed(tasks):
-        result = await task
-        print(result)
-
-    # порядок: B, C, A
-    # время: 3
-
-
-asyncio.run(main())
-
-tasks = [
-    asyncio.create_task(worker("A", 1)),
-    asyncio.create_task(worker("B", 3)),
-    asyncio.create_task(worker("C", 2)),
-]
-
-for task in asyncio.as_completed(tasks):
-    print(await task)
-
-
-# вывод: A, C, B
-# общее время: 3
-
-#
-async def a():
-    await asyncio.sleep(3)
-    return "A"
-
-
-async def b():
     await asyncio.sleep(1)
-    return "B"
 
+    task.cancel()
 
-async def c():
-    await asyncio.sleep(2)
-    return "C"
+    try:
+        await task
+    except asyncio.CancelledError:
+        print("main caught cancellation")
 
+# Полный вывод:
+# print("start"), print("cancelled"), print("main caught cancellation")
 
-#
-results = await asyncio.gather(
-    a(),
-    b(),
-    c(),
+# Выведется ли end? нет
+# Выведется ли cancelled? да
+# Выведется ли main caught cancellation? да
+# Что будет с task.cancelled() после await task? Если сразу написать следующей строчкой, то он не выполнится так как except сработает
+# Но если после except например написать, то будет True
+
+async def worker():
+    try:
+        await asyncio.sleep(5)
+    finally:
+        print("finally")
+
+task = asyncio.create_task(worker())
+
+await asyncio.sleep(1)
+
+task.cancel()
+
+try:
+    await task
+except asyncio.CancelledError:
+    print("cancelled")
+
+# порядок вывода: print("finally"), print("cancelled")
+# Выполнится ли finally, несмотря на отмену? Да, finally при любых обстоятельствах выполняется
+
+async def main():
+    try:
+        async with asyncio.timeout(2):
+            await asyncio.sleep(5)
+            print("done")
+    except TimeoutError:
+        print("timeout")
+
+# через сколько примерно секунд? 2
+# что будет выведено? print("timeout")
+# будет ли "done"? нет
+
+async with asyncio.timeout(2):
+    await asyncio.sleep(5)
+
+# A. TimeoutError
+# B. asyncio.sleep(5)
+# C. CancelledError
+# D. истекли 2 секунды
+# E. timeout() преобразует CancelledError
+
+# Порядок: B, D, C, E, A
+
+async def worker():
+    await asyncio.sleep(5)
+    return "done"
+
+# A
+task = asyncio.create_task(worker())
+
+done, pending = await asyncio.wait(
+    {task},
+    timeout=1,
 )
-print(results)
 
+# B
+try:
+    async with asyncio.timeout(1):
+        await worker()
+except TimeoutError:
+    print("timeout")
+
+# A:
+# через сколько вернётся? 1
+# task продолжит работу? да
+# pending = set(task)
 #
-tasks = [
-    asyncio.create_task(a()),
-    asyncio.create_task(b()),
-    asyncio.create_task(c()),
-]
-
-for task in asyncio.as_completed(tasks):
-    print(await task)
-
-# gather:
-# результат: ["A", "B", "C"]
-# время: 3
-#
-# as_completed:
-# порядок вывода: B, C, A
-# время: 3
-
-# 4
-async def request(name, delay):
-    print(f"{name}: start")
-    await asyncio.sleep(delay)
-    print(f"{name}: end")
-    return name
-
-tasks = [
-    asyncio.create_task(request("A", 3)),
-    asyncio.create_task(request("B", 1)),
-    asyncio.create_task(request("C", 2)),
-]
-
-for task in asyncio.as_completed(tasks):
-    result = await task
-    print("RESULT:", result)
-
-# Вывод:
-# A start, B start, C start, B end, RESULT: B, C end, RESULT: C, A end, RESULT: A
-
-# 5
-tasks = [
-    asyncio.create_task(request("Google", 3)),
-    asyncio.create_task(request("Bing", 1)),
-    asyncio.create_task(request("DuckDuckGo", 2)),
-]
-
-# выберу as_completed, так как он позволяет получать результаты по мере выполнения корутин
+# B:
+# через сколько будет TimeoutError? 1
+# worker продолжит работу? нет
 
 # 6
-async def good(name, delay):
-    await asyncio.sleep(delay)
-    return name
+async def worker():
+    try:
+        await asyncio.sleep(10)
+    except asyncio.CancelledError:
+        print("cancelled")
 
+task = asyncio.create_task(worker())
 
-async def bad():
-    await asyncio.sleep(1)
-    raise ValueError("error")
+await asyncio.sleep(1)
 
-tasks = [
-    asyncio.create_task(good("A", 3)),
-    asyncio.create_task(bad()),
-    asyncio.create_task(good("C", 2)),
-]
+task.cancel()
 
-for task in asyncio.as_completed(tasks):
-    result = await task
-    print(result)
+await task
 
-# Какая Task завершится первой? bad
-# Что произойдёт на await task для неё? выдано исключение
-# Будут ли остальные Tasks автоматически отменены? да
-# Что произойдёт с A и C? отменятся
+print(task.cancelled())
 
-# Разница между await asyncio.gather(...) и await asyncio.wait(...) и asyncio.as_completed(...):
-# gather — ждет пока выполнятся все корутины
-#
-# wait — есть возможность настроить когда получить результат с помощью условия и контролировать выполнение с помощью done, pending
-#
-# as_completed — отдает корутины по мере их выполнения
+# Будет напечатано: print("cancelled"), последний print не будет напечатан, так как нет except CancelledError
+
+# 7
+async def worker():
+    await asyncio.sleep(5)
+    return "done"
+
+try:
+    result = await asyncio.wait_for(
+        worker(),
+        timeout=1,
+    )
+except TimeoutError:
+    print("timeout")
+
+# 1. Через сколько примерно будет TimeoutError? 1
+# 2. Что произойдёт с worker()? отменится
+# 3. Чем этот пример концептуально отличается от wait(timeout=1)? тем что таск отменяется
+
+# task.cancel() - отменить задачу
+# asyncio.timeout() и asyncio.wait_for() - через заданное время отменить задачу
+# asyncio.wait(..., timeout=...) - через заданное время вернуть done, pending и не отменять задачу
+
+# В чём принципиальная разница между «перестать ждать операцию» и «отменить операцию»?
+# Разница в том, что мы возвращаем текущее состояние всех задач, но не отменяем их
