@@ -6,45 +6,37 @@ async def worker(name, delay):
     return name
 
 
-task1 = asyncio.create_task(worker("A", 3))
-task2 = asyncio.create_task(worker("B", 1))
-task3 = asyncio.create_task(worker("C", 2))
+async def main():
+    tasks = [
+        asyncio.create_task(worker("A", 3)),
+        asyncio.create_task(worker("B", 1)),
+        asyncio.create_task(worker("C", 2)),
+    ]
 
-done, pending = await asyncio.wait(
-    {task1, task2, task3}
-)
+    for task in asyncio.as_completed(tasks):
+        result = await task
+        print(result)
 
-# Сколько примерно секунд? 3
-# Что будет в pending? set невыполненных task
-# Что находится внутри done? set выполненных task
-# Что вернёт task1.result()? если после текущей wait написать то A результат выполнения корутины
-
-done, pending = await asyncio.wait(
-    {task1, task2, task3},
-    return_when=asyncio.FIRST_COMPLETED,
-)
-
-# время ≈ 1
-# done содержит ? - set(task2)
-# pending содержит ? - set(task1, task3)
-
-for task in done:
-    print(task.result())  # Будет напечатано: B
-
-# work 4
-done, pending = await asyncio.wait(
-    tasks,
-    return_when=asyncio.FIRST_COMPLETED,
-)
-
-done2, pending2 = await asyncio.wait(pending)
+    # порядок: B, C, A
+    # время: 3
 
 
-# Что находится в done2? set(task1, task3)
-# Что находится в pending2? set()
-# Сколько примерно времени займёт вся программа? 1 секунда уже прошла, и две секунды займет следующий wait для done2
-# Как получить результаты всех Tasks? можно пройтись циклом по done и done2 и вызвать .result() каждого task
+asyncio.run(main())
 
+tasks = [
+    asyncio.create_task(worker("A", 1)),
+    asyncio.create_task(worker("B", 3)),
+    asyncio.create_task(worker("C", 2)),
+]
+
+for task in asyncio.as_completed(tasks):
+    print(await task)
+
+
+# вывод: A, C, B
+# общее время: 3
+
+#
 async def a():
     await asyncio.sleep(3)
     return "A"
@@ -60,81 +52,89 @@ async def c():
     return "C"
 
 
-# A
+#
 results = await asyncio.gather(
     a(),
     b(),
     c(),
 )
+print(results)
 
-# B
-tasks = {
+#
+tasks = [
     asyncio.create_task(a()),
     asyncio.create_task(b()),
     asyncio.create_task(c()),
-}
+]
 
-done, pending = await asyncio.wait(
-    tasks,
-    return_when=asyncio.FIRST_COMPLETED,
-)
+for task in asyncio.as_completed(tasks):
+    print(await task)
 
-
-# A:
-# время = 3 секунды
-# результат = ["A", "B", "C"]
+# gather:
+# результат: ["A", "B", "C"]
+# время: 3
 #
-# B:
-# время = 1 секунда
-# done = set(b)
-# pending = set(a, c)
+# as_completed:
+# порядок вывода: B, C, A
+# время: 3
 
-async def good():
-    await asyncio.sleep(2)
-    return "OK"
+# 4
+async def request(name, delay):
+    print(f"{name}: start")
+    await asyncio.sleep(delay)
+    print(f"{name}: end")
+    return name
+
+tasks = [
+    asyncio.create_task(request("A", 3)),
+    asyncio.create_task(request("B", 1)),
+    asyncio.create_task(request("C", 2)),
+]
+
+for task in asyncio.as_completed(tasks):
+    result = await task
+    print("RESULT:", result)
+
+# Вывод:
+# A start, B start, C start, B end, RESULT: B, C end, RESULT: C, A end, RESULT: A
+
+# 5
+tasks = [
+    asyncio.create_task(request("Google", 3)),
+    asyncio.create_task(request("Bing", 1)),
+    asyncio.create_task(request("DuckDuckGo", 2)),
+]
+
+# выберу as_completed, так как он позволяет получать результаты по мере выполнения корутин
+
+# 6
+async def good(name, delay):
+    await asyncio.sleep(delay)
+    return name
 
 
 async def bad():
     await asyncio.sleep(1)
     raise ValueError("error")
 
+tasks = [
+    asyncio.create_task(good("A", 3)),
+    asyncio.create_task(bad()),
+    asyncio.create_task(good("C", 2)),
+]
 
-async def main():
-    task1 = asyncio.create_task(good())
-    task2 = asyncio.create_task(bad())
+for task in asyncio.as_completed(tasks):
+    result = await task
+    print(result)
 
-    done, pending = await asyncio.wait(
-        {task1, task2},
-        return_when=asyncio.FIRST_EXCEPTION,
-    )
+# Какая Task завершится первой? bad
+# Что произойдёт на await task для неё? выдано исключение
+# Будут ли остальные Tasks автоматически отменены? да
+# Что произойдёт с A и C? отменятся
 
-
-# Через сколько примерно wait() вернётся? 1 секунда
-# Какая Task будет в done? task2
-# Какая в pending? task1
-# Что произойдёт, если сделать:
-for task in done:
-    print(task.result())  # ValueError("error")
-
-# 7
-done, pending = await asyncio.wait(
-    tasks,
-    timeout=1,
-)
-
-# A → 5 секунд
-# B → 3 секунды
-# C → 2 секунды
-
-# через сколько wait вернётся? 1 секунду
-# done = set()
-# pending = set(a, b, c)
-# будут ли pending Tasks автоматически отменены из-за timeout=1? нет
-
-# Разница между await asyncio.gather(...) и await asyncio.wait(...) в возможности получить по мере выполнения task
-
-# Если мне нужно сделать 10 HTTP-запросов и получить результаты всех 10, что естественнее использовать?
-# Естественнее gather
-
-# У меня есть 10 Tasks, и мне нужно обработать первую завершившуюся, не дожидаясь остальных?
-# Тогда wait
+# Разница между await asyncio.gather(...) и await asyncio.wait(...) и asyncio.as_completed(...):
+# gather — ждет пока выполнятся все корутины
+#
+# wait — есть возможность настроить когда получить результат с помощью условия и контролировать выполнение с помощью done, pending
+#
+# as_completed — отдает корутины по мере их выполнения
