@@ -1,165 +1,140 @@
 import asyncio
 
 
-async def get_number(number):
-    await asyncio.sleep(1)
-    return number
-
-async def main():
-    results = await asyncio.gather(
-        get_number(1),
-        get_number(2),
-        get_number(3),
-    )
-
-    print(results)  # [1, 2, 3]
-
-# results тип list, займет 1 секунду
-
-async def first():
-    await asyncio.sleep(3)
-    return "first"
+async def worker(name, delay):
+    await asyncio.sleep(delay)
+    return name
 
 
-async def second():
-    await asyncio.sleep(1)
-    return "second"
+task1 = asyncio.create_task(worker("A", 3))
+task2 = asyncio.create_task(worker("B", 1))
+task3 = asyncio.create_task(worker("C", 2))
 
-
-async def third():
-    await asyncio.sleep(2)
-    return "third"
-
-results = await asyncio.gather(
-    first(),
-    second(),
-    third(),
+done, pending = await asyncio.wait(
+    {task1, task2, task3}
 )
 
-print(results)
+# Сколько примерно секунд? 3
+# Что будет в pending? set невыполненных task
+# Что находится внутри done? set выполненных task
+# Что вернёт task1.result()? если после текущей wait написать то A результат выполнения корутины
 
-# results = ["first", "second", "third"]
-# время ≈ 3
-# в каком порядке фактически завершатся coroutine? - second, third, first
+done, pending = await asyncio.wait(
+    {task1, task2, task3},
+    return_when=asyncio.FIRST_COMPLETED,
+)
 
-async def get_name():
+# время ≈ 1
+# done содержит ? - set(task2)
+# pending содержит ? - set(task1, task3)
+
+for task in done:
+    print(task.result())  # Будет напечатано: B
+
+# work 4
+done, pending = await asyncio.wait(
+    tasks,
+    return_when=asyncio.FIRST_COMPLETED,
+)
+
+done2, pending2 = await asyncio.wait(pending)
+
+
+# Что находится в done2? set(task1, task3)
+# Что находится в pending2? set()
+# Сколько примерно времени займёт вся программа? 1 секунда уже прошла, и две секунды займет следующий wait для done2
+# Как получить результаты всех Tasks? можно пройтись циклом по done и done2 и вызвать .result() каждого task
+
+async def a():
+    await asyncio.sleep(3)
+    return "A"
+
+
+async def b():
     await asyncio.sleep(1)
-    return "Armen"
+    return "B"
 
 
-async def get_age():
-    await asyncio.sleep(1)
-    return 27
+async def c():
+    await asyncio.sleep(2)
+    return "C"
 
-
-async def get_city():
-    await asyncio.sleep(1)
-    return "Amsterdam"
-
-
-async def main():
-    name, age, city = await asyncio.gather(
-        get_name(),
-        get_age(),
-        get_city(),
-    )
-
-    print(name, age, city)
-
-
-asyncio.run(main())
-
-# Объясни, почему здесь порядок переменных не зависит от того, какая coroutine завершилась первой.
-# Потому что gather отдает элементы в списке такой же последовательности, какой аргументы были переданы в него
 
 # A
-task1 = asyncio.create_task(first())
-task2 = asyncio.create_task(second())
-
-result1 = await task1
-result2 = await task2
-
-# B
-result1, result2 = await asyncio.gather(
-    first(),
-    second(),
+results = await asyncio.gather(
+    a(),
+    b(),
+    c(),
 )
 
-# Будет ли разница во времени выполнения? Не будет
-# Что в итоге делает gather()? Помогает запускать без лишнего кода удобно конкурентно корутины и получать результаты
-# Что получаем в result1 и result2? "first" и "second"
-# Нужно ли нам вручную создавать Tasks в варианте B? Нет
+# B
+tasks = {
+    asyncio.create_task(a()),
+    asyncio.create_task(b()),
+    asyncio.create_task(c()),
+}
 
-async def foo():
-    await asyncio.sleep(1)
-    return 10
-
-
-async def bar():
-    await asyncio.sleep(2)
-    return 20
+done, pending = await asyncio.wait(
+    tasks,
+    return_when=asyncio.FIRST_COMPLETED,
+)
 
 
-async def main():
-    results = await asyncio.gather(foo(), bar())
-
-    print(results)
-    print(type(results))
-
-# вывод: [10, 20]
-# тип: list
-# время: 2
+# A:
+# время = 3 секунды
+# результат = ["A", "B", "C"]
+#
+# B:
+# время = 1 секунда
+# done = set(b)
+# pending = set(a, c)
 
 async def good():
-    await asyncio.sleep(1)
+    await asyncio.sleep(2)
     return "OK"
 
 
 async def bad():
     await asyncio.sleep(1)
-    raise ValueError("Something went wrong")
+    raise ValueError("error")
+
 
 async def main():
-    results = await asyncio.gather(
-        good(),
-        bad(),
+    task1 = asyncio.create_task(good())
+    task2 = asyncio.create_task(bad())
+
+    done, pending = await asyncio.wait(
+        {task1, task2},
+        return_when=asyncio.FIRST_EXCEPTION,
     )
 
-    print(results)
 
-# Вернётся ли results? Я так понимаю исключение пойдет вверх и программа завершится
-# Что произойдёт с ValueError? Пробьется наружу и остановит выполнение программы
-# Напечатается ли results? Нет
-# 1. Что произойдёт с good()? Выполнится полностью
+# Через сколько примерно wait() вернётся? 1 секунда
+# Какая Task будет в done? task2
+# Какая в pending? task1
+# Что произойдёт, если сделать:
+for task in done:
+    print(task.result())  # ValueError("error")
 
-results = await asyncio.gather(
-    good(),
-    bad(),
-    return_exceptions=True,
-)  # results = ["OK", ValueError("Something went wrong")]
-
-async def request(name, delay):
-    print(f"{name}: start")
-    await asyncio.sleep(delay)
-    print(f"{name}: end")
-    return name
-
-results = await asyncio.gather(
-    request("A", 3),
-    request("B", 1),
-    request("C", 2),
+# 7
+done, pending = await asyncio.wait(
+    tasks,
+    timeout=1,
 )
 
-# 1. Порядок start? A, B, C
-# 2. Порядок end? B, C, A
-# 3. Что будет в results? ["A", "B", "C"]
-# 4. Сколько секунд? 3
-# 5. Почему порядок end и порядок results будут различаться?
-# Потому что порядок results зависит от порядка аргументов в gather, а end от времени sleep
+# A → 5 секунд
+# B → 3 секунды
+# C → 2 секунды
 
-foo()
-create_task(foo())
-await foo()
-await asyncio.gather(foo(), bar())
+# через сколько wait вернётся? 1 секунду
+# done = set()
+# pending = set(a, b, c)
+# будут ли pending Tasks автоматически отменены из-за timeout=1? нет
 
-# Coroutine -> Task -> result coroutine -> result 2 coroutines
+# Разница между await asyncio.gather(...) и await asyncio.wait(...) в возможности получить по мере выполнения task
+
+# Если мне нужно сделать 10 HTTP-запросов и получить результаты всех 10, что естественнее использовать?
+# Естественнее gather
+
+# У меня есть 10 Tasks, и мне нужно обработать первую завершившуюся, не дожидаясь остальных?
+# Тогда wait
