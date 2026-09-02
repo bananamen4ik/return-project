@@ -1,149 +1,122 @@
 import asyncio
 
 
-async def worker():
-    print("start")
-
-    try:
-        await asyncio.sleep(5)
-    except asyncio.CancelledError:
-        print("cancelled")
-        raise
-
-    print("end")
+async def worker(name, delay):
+    await asyncio.sleep(delay)
+    return name
 
 
-async def main():
-    task = asyncio.create_task(worker())
+async with asyncio.TaskGroup() as tg:
+    task1 = tg.create_task(worker("A", 3))
+    task2 = tg.create_task(worker("B", 1))
+    task3 = tg.create_task(worker("C", 2))
 
+# 1. Сколько примерно времени? 3
+# 2. Все ли Tasks завершатся? да
+# 3. Что будет после async with? все задачи завершатся и программа продолжит работу
+# 4. Что вернёт task1.result()? A
+
+async with asyncio.TaskGroup() as tg:
+    task1 = tg.create_task(worker("A", 3))
+    task2 = tg.create_task(worker("B", 1))
+    task3 = tg.create_task(worker("C", 2))
+
+print(task1.result())
+print(task2.result())
+print(task3.result())
+
+
+# Вывод будет: A, B, C с каждой новой строки как print идет
+
+async def good(name, delay):
+    await asyncio.sleep(delay)
+    print(f"{name} finished")
+
+
+async def bad():
     await asyncio.sleep(1)
+    raise ValueError("error")
 
-    task.cancel()
-
-    try:
-        await task
-    except asyncio.CancelledError:
-        print("main caught cancellation")
-
-# Полный вывод:
-# print("start"), print("cancelled"), print("main caught cancellation")
-
-# Выведется ли end? нет
-# Выведется ли cancelled? да
-# Выведется ли main caught cancellation? да
-# Что будет с task.cancelled() после await task? Если сразу написать следующей строчкой, то он не выполнится так как except сработает
-# Но если после except например написать, то будет True
-
-async def worker():
-    try:
-        await asyncio.sleep(5)
-    finally:
-        print("finally")
-
-task = asyncio.create_task(worker())
-
-await asyncio.sleep(1)
-
-task.cancel()
 
 try:
-    await task
-except asyncio.CancelledError:
-    print("cancelled")
+    async with asyncio.TaskGroup() as tg:
+        tg.create_task(good("A", 3))
+        tg.create_task(bad())
+        tg.create_task(good("C", 2))
+except* ValueError:
+    print("caught")
 
-# порядок вывода: print("finally"), print("cancelled")
-# Выполнится ли finally, несмотря на отмену? Да, finally при любых обстоятельствах выполняется
+# Что произойдёт через 1 секунду? Вызовется ValueError("error")
+# Успеет ли A вывести A finished? Нет
+# Успеет ли C вывести C finished? Нет
+# Что будет выведено после TaskGroup? print("caught")
+# Будут ли A и C отменены? Да
 
-async def main():
-    try:
-        async with asyncio.timeout(2):
-            await asyncio.sleep(5)
-            print("done")
-    except TimeoutError:
-        print("timeout")
+# 4
+async def good(name, delay):
+    await asyncio.sleep(delay)
+    print(f"{name} finished")
+    return name
 
-# через сколько примерно секунд? 2
-# что будет выведено? print("timeout")
-# будет ли "done"? нет
 
-async with asyncio.timeout(2):
-    await asyncio.sleep(5)
-
-# A. TimeoutError
-# B. asyncio.sleep(5)
-# C. CancelledError
-# D. истекли 2 секунды
-# E. timeout() преобразует CancelledError
-
-# Порядок: B, D, C, E, A
-
-async def worker():
-    await asyncio.sleep(5)
-    return "done"
+async def bad():
+    await asyncio.sleep(1)
+    raise ValueError("error")
 
 # A
-task = asyncio.create_task(worker())
-
-done, pending = await asyncio.wait(
-    {task},
-    timeout=1,
+await asyncio.gather(
+    good("A", 3),
+    bad(),
+    good("C", 2),
 )
 
 # B
-try:
-    async with asyncio.timeout(1):
-        await worker()
-except TimeoutError:
-    print("timeout")
+async with asyncio.TaskGroup() as tg:
+    tg.create_task(good("A", 3))
+    tg.create_task(bad())
+    tg.create_task(good("C", 2))
 
-# A:
-# через сколько вернётся? 1
-# task продолжит работу? да
-# pending = set(task)
-#
-# B:
-# через сколько будет TimeoutError? 1
-# worker продолжит работу? нет
+# Что принципиально произойдёт с A и C при ошибке bad() в каждом варианте?
+# В варианте A: выполнятся и попадут в list
+# В варианте C: отменятся
 
-# 6
-async def worker():
+async with asyncio.TaskGroup() as tg:
+    tg.create_task(worker("A", 1))
+    tg.create_task(worker("B", 2))
+
+# Этот код не позволяет написать results = await ... как с gather, потому что здесь нужно сохранить
+# результаты в переменные и после async with получить результаты через .result()
+
+async def worker(name):
     try:
         await asyncio.sleep(10)
+        print(name)
     except asyncio.CancelledError:
-        print("cancelled")
-
-task = asyncio.create_task(worker())
-
-await asyncio.sleep(1)
-
-task.cancel()
-
-await task
-
-print(task.cancelled())
-
-# Будет напечатано: print("cancelled"), последний print не будет напечатан, так как нет except CancelledError
-
-# 7
-async def worker():
-    await asyncio.sleep(5)
-    return "done"
+        print(f"{name} cancelled")
+        raise
 
 try:
-    result = await asyncio.wait_for(
-        worker(),
-        timeout=1,
-    )
-except TimeoutError:
-    print("timeout")
+    async with asyncio.TaskGroup() as tg:
+        tg.create_task(worker("A"))
+        tg.create_task(worker("B"))
 
-# 1. Через сколько примерно будет TimeoutError? 1
-# 2. Что произойдёт с worker()? отменится
-# 3. Чем этот пример концептуально отличается от wait(timeout=1)? тем что таск отменяется
+        await asyncio.sleep(1)
+        raise ValueError("boom")
+except* ValueError:
+    print("caught")
 
-# task.cancel() - отменить задачу
-# asyncio.timeout() и asyncio.wait_for() - через заданное время отменить задачу
-# asyncio.wait(..., timeout=...) - через заданное время вернуть done, pending и не отменять задачу
+# Полный вывод, здесь я напишу как я вижу, но нужна будет помощь:
+# Сначала вызовется raise ValueError("boom"), затем A cancelled, B cancelled, print("caught")
+# но не знаю что будет с двумя asyncio.CancelledError которые пробрасываются наружу когда конкретно завершится программа
 
-# В чём принципиальная разница между «перестать ждать операцию» и «отменить операцию»?
-# Разница в том, что мы возвращаем текущее состояние всех задач, но не отменяем их
+# 7
+# gather - выполнить корутины и вернуть результаты в list
+# TaskGroup - сгруппировать таски, поставить на выполнение и автоматически отменить в случае ошибки одного из
+
+# 8
+# Нужно одновременно:
+# - получить пользователя из PostgreSQL
+# - получить настройки из Redis
+# - запросить данные внешнего API
+
+# я бы выбрал gather, так как в случае ошибки он не прервет оставшиеся задачи и вернет все результаты в том числе и errors
