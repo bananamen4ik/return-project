@@ -1,98 +1,107 @@
-try:
-    raise ExceptionGroup(
-        "test",
-        [
-            ValueError("value"),
-            TypeError("type"),
-        ],
-    )
-except* ValueError:
-    print("value caught")
-
-# Выведется print("value caught") и далее вылезет наружу TypeError("type")
-# Выведется ли value caught? да
-# Что произойдёт с TypeError? вылезет наружу
-# Завершится ли программа без необработанного исключения? нет
-
-try:
-    raise ExceptionGroup(
-        "test",
-        [
-            ValueError("value"),
-            TypeError("type"),
-        ],
-    )
-except* ValueError:
-    print("value caught")
-except* TypeError:
-    print("type caught")
-
-# Будет выведено: print("value caught"), print("type caught")
-
-try:
-    raise ExceptionGroup(
-        "test",
-        [
-            ValueError("A"),
-            TypeError("B"),
-            ValueError("C"),
-        ],
-    )
-except* ValueError as e:
-    print("caught:", type(e))
-    print("number:", len(e.exceptions))
-
-# какой будет type(e)? ExceptionGroup
-# чему будет равен len(e.exceptions)? 2
-# какие именно исключения окажутся внутри e? ValueError
-
-import asyncio
-
-
-async def worker(name, exc):
-    await asyncio.sleep(1)
-    raise exc
+async def worker():
+    print("worker start")
+    await asyncio.sleep(3)
+    print("worker done")
+    return "result"
 
 
 async def main():
+    task = asyncio.create_task(worker())
+
+    await asyncio.sleep(1)
+
     try:
-        async with asyncio.TaskGroup() as tg:
-            tg.create_task(worker("A", ValueError("A error")))
-            tg.create_task(worker("B", TypeError("B error")))
-    except* ValueError:
-        print("value")
-    except* TypeError:
-        print("type")
+        await asyncio.shield(task)
+    except asyncio.CancelledError:
+        print("main cancelled")
+
+# Что делает shield(task)? защищает от отмены task, если внешнюю task отменят
+# Если main отменят во время await shield(task), что произойдёт с main? она print("main cancelled")
+# Что произойдёт с task? продолжит выполнение
+# Дойдёт ли worker до "worker done"? да
+
+async def worker():
+    try:
+        print("start")
+        await asyncio.sleep(5)
+        print("done")
+    except asyncio.CancelledError:
+        print("worker cancelled")
+        raise
 
 
-asyncio.run(main())
+async def main():
+    task = asyncio.create_task(worker())
 
-# Что произойдёт с TaskGroup? вызовется ValueError("A error"), отменится worker B, и print("value")
-# Но это с учетом что worker B не успеет завершиться сам, но так как там и там 1 секунда выполнения,
-# то я предпологаю он тоже может завершиться и то CancelledError он выкенет свой TypeError и тогда и его ошибка обработается
-# Почему здесь можно использовать два except*? потому что отдельно обрабатываются две ошибки
-# Что выведется? print("value")
-# Будут ли ValueError и TypeError существовать как два отдельных исключения, или наружу выйдет ExceptionGroup?
-# выйдет ExceptionGroup
+    await asyncio.sleep(1)
 
-# 5
-async with asyncio.TaskGroup() as tg:
-    tg.create_task(worker("A", ValueError("A")))
-    tg.create_task(worker("B", TypeError("B")))
+    task.cancel()
 
-# A → ValueError добавляются в очередь
-# B → TypeError добавляются в очередь
-#       ↓
-# TaskGroup вызывает
-#       ↓
-# ExceptionGroup обе ошибки перехватываются и добавляются в группу исключений
-#       ↓
-# except* ValueError по отдельности обрабатываются
-# except* TypeError по отдельности обрабатываются
+    try:
+        await asyncio.shield(task)
+    except asyncio.CancelledError:
+        print("main caught")
 
-# Почему TaskGroup вообще нужен ExceptionGroup, если обычный except уже умеет ловить исключения?
-# Потому что может во время работы перехватиться не одна ошибка, а несколько
+# task.cancel()
+# → кто получает CancelledError?  и worker и main
+# → shield спасает task или нет? нет, так как напрямую была task завершена
 
-# 6
-# Сравнить except ValueError:  и except* ValueError:
-# except работает с одним исключением, а except* отбирает конкретные типы исключений из группы
+# await task и await asyncio.shield(task)
+# Представь, что сама текущая задача была отменена.
+# Что происходит в каждом варианте?
+# Сформулируй принципиальную разницу.
+# Если я правильно понял, что не сама task будет отменена а внешняя task которая ее вызывает, то
+# await task и ее завершит, а shield спасет и продолжит выполнение
+
+async def save_to_database():
+    print("saving...")
+    await asyncio.sleep(5)
+    print("saved")
+
+
+async def request_handler():
+    task = asyncio.create_task(save_to_database())
+
+    try:
+        await asyncio.shield(task)
+    except asyncio.CancelledError:
+        print("client disconnected")
+
+# клиент
+#   ↓
+# request_handler()
+#   ↓
+# save_to_database()
+
+# Клиент отключился через 1 секунду.
+# Почему здесь может быть полезен shield()? чтобы довести сохранение до конца, не отменилась task
+# И почему не всегда стоит использовать shield() для таких операций? лишние ресурсы не использовать без необходимости
+# дожидаться ответа если уже не нужно
+
+async def worker():
+    try:
+        await asyncio.sleep(5)
+        print("done")
+    except asyncio.CancelledError:
+        print("worker cancelled")
+        raise
+
+
+async def main():
+    task = asyncio.create_task(worker())
+
+    try:
+        async with asyncio.timeout(1):
+            await asyncio.shield(task)
+    except TimeoutError:
+        print("timeout")
+
+    await asyncio.sleep(5)
+
+# Через сколько будет TimeoutError? 1
+# Будет ли worker отменён? нет
+# Выведется ли done? да
+# Зачем здесь shield() изменил поведение timeout()? чтобы в фоне продолжать выполнять task не дожидаясь его ответа
+
+# Что именно защищает asyncio.shield() от cancellation, а что он НЕ защищает?
+# от завершения внутреннего task из-за внешнего, не защищает от прямого завершения task
