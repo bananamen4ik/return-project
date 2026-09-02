@@ -1,168 +1,154 @@
-queue = asyncio.Queue()
+import asyncio
 
-await queue.put("A")
-await queue.put("B")
-await queue.put("C")
-
-print(queue.qsize())
-
-print(await queue.get())
-print(await queue.get())
-
-print(queue.qsize())
-
-# Что выведет первый qsize()? 3
-# Что выведут два get()? A, B
-# Что выведет второй qsize()? 1
-# В каком порядке будут получены элементы? A, B, C. FIFO
-
-async def consumer(queue):
-    print("waiting")
-
-    item = await queue.get()
-
-    print("got:", item)
+counter = 0
+lock = asyncio.Lock()
 
 
-async def producer(queue):
-    await asyncio.sleep(2)
-    await queue.put("hello")
-    print("put")
+async def increment(name):
+    global counter
+
+    async with lock:
+        print(name, "start")
+
+        current = counter
+        await asyncio.sleep(1)
+        counter = current + 1
+
+        print(name, "end")
 
 
 async def main():
-    queue = asyncio.Queue()
-
-    consumer_task = asyncio.create_task(consumer(queue))
-    producer_task = asyncio.create_task(producer(queue))
-
     await asyncio.gather(
-        consumer_task,
-        producer_task,
+        increment("A"),
+        increment("B"),
+        increment("C"),
     )
 
-# Что напечатается первым? print("waiting")
-# Через сколько примерно появится "got: hello"? 2 секунды
-# Что делает consumer всё это время? ожидает появление в очереди элемента
-# Выполняется ли consumer или она блокирует весь event loop? выполняется насколько логично я понимаю
+    print(counter)
 
-queue = asyncio.Queue(maxsize=2)
 
-await queue.put("A")
-await queue.put("B")
+asyncio.run(main())
 
-print("before")
+# Сколько времени примерно займёт выполнение? 3 секунды
+# Что будет выведено относительно start/end? A start, A end, B start, B end, C start, C end
+# Какое значение будет у counter? 3
+# Почему задачи не выполняют критическую секцию одновременно, несмотря на gather()? lock блокирует остальные таски пока
+# не завершится
 
-await queue.put("C")
+lock = asyncio.Lock()
 
-print("after")
 
-# Дойдёт ли выполнение до "after"? нет
-# Почему? так как максимальный размер 2
-# Что должно произойти с очередью, чтобы put("C") продолжился? пока не освободится место в очереди будет блокировка
+async def worker(name):
+    print(name, "before")
 
-async def worker(queue):
-    while True:
-        item = await queue.get()
+    async with lock:
+        print(name, "inside")
+        await asyncio.sleep(2)
+        print(name, "after")
 
-        print("processing", item)
+    print(name, "outside")
 
-        await asyncio.sleep(1)
+
+await asyncio.gather(
+    worker("A"),
+    worker("B"),
+)
+
+# Могут ли оба before выполниться подряд? нет
+# Могут ли одновременно выполняться A inside и B inside? нет
+# Может ли B before выполниться, пока A находится внутри Lock? да
+# Когда B сможет войти в Lock? после A after
+
+semaphore = asyncio.Semaphore(2)
+
+
+async def worker(name):
+    async with semaphore:
+        print(name, "start")
+        await asyncio.sleep(2)
+        print(name, "end")
+
+
+await asyncio.gather(
+    worker("A"),
+    worker("B"),
+    worker("C"),
+    worker("D"),
+)
+
+# Сколько задач максимум одновременно находятся внутри async with semaphore? 2
+# Через сколько примерно завершатся все четыре? 4 секунды
+# Может ли C начать работу одновременно с A? нет
+# Что произойдёт с C и D, пока A и B работают? они ждут async with semaphore: пока освободится место
+
+# Для каждого сценария выбери:
+# Lock
+# Semaphore
+# A = Lock
+# B = Semaphore
+# C = Lock
+# D = Semaphore
+
+event = asyncio.Event()
+
+
+async def worker():
+    print("worker waiting")
+
+    await event.wait()
+
+    print("worker started")
 
 
 async def main():
-    queue = asyncio.Queue()
-
-    worker_task = asyncio.create_task(worker(queue))
-
-    for i in range(3):
-        await queue.put(i)
-
-    await asyncio.sleep(4)
-
-# Сколько элементов обработает worker? 3
-# В каком порядке? 0, 1, 2
-# Почему worker не забирает все три элемента одновременно? каждый .get вызывается с задержкой sleep
-# Что происходит с worker после обработки 2? продолжает дальше ждать .get как обычно
-
-async def worker(queue):
-    item = await queue.get()
-
-    print("processing", item)
+    task = asyncio.create_task(worker())
 
     await asyncio.sleep(2)
 
-    queue.task_done()
+    print("setting event")
+    event.set()
+
+    await task
 
 
-async def main():
-    queue = asyncio.Queue()
+# Что произойдёт в первые 2 секунды? print("worker waiting")
+# На чём остановится worker? await event.wait()
+# Что делает event.set()? устанавливает событие
+# Может ли worker продолжить выполнение после set()? да, он его и ждет
+# Удаляет ли set() Event обратно в состояние unset? он устанавливает событие, не удаляет
 
-    await queue.put("A")
+event = asyncio.Event()
 
-    asyncio.create_task(worker(queue))
+event.set()
 
-    print("before join")
+print(event.is_set())
 
-    await queue.join()
+await event.wait()
 
-    print("after join")
+print("passed")
 
-# Что выведется первым? print("before join")
-# Через сколько примерно "after join"? 2 секунды
-# Почему join() знает, что worker закончил? worker вызвал queue.task_done() и была одна task теперь 0
-# Что произойдёт, если убрать queue.task_done()? join не узнает и продолжит ждать
+event.clear()
 
-async def worker(queue):
-    while True:
-        item = await queue.get()
+print(event.is_set())
 
-        try:
-            print("processing", item)
-            await asyncio.sleep(1)
-        finally:
-            queue.task_done()
+await event.wait()
 
-# Почему task_done() здесь лучше помещать в finally? чтобы в любом случае вызвался task_done и счетчик был надежным
-# даже в случаях исключений любых
+print("never reached")
 
-async def worker(name, queue):
-    while True:
-        item = await queue.get()
+# Что выведется до clear()? True, passed
+# Почему await event.wait() проходит сразу после set()? Потому что event произошел, он не сброшен
+# Что изменяет clear()? сбрасывает event в unset
+# На чём остановится последняя строка? await event.wait()
 
-        try:
-            print(name, "processing", item)
-            await asyncio.sleep(1)
-        finally:
-            queue.task_done()
+# Объясни, почему здесь Event, а не:
+# - Lock
+# - Semaphore
+# - Queue
+# Потому что это не ограничение на количество, а разрешение на выполнение кому нужно
 
-
-async def main():
-    queue = asyncio.Queue()
-
-    workers = [
-        asyncio.create_task(worker("W1", queue)),
-        asyncio.create_task(worker("W2", queue)),
-        asyncio.create_task(worker("W3", queue)),
-    ]
-
-    for i in range(6):
-        await queue.put(i)
-
-    await queue.join()
-
-    for worker_task in workers:
-        worker_task.cancel()
-
-    await asyncio.gather(*workers, return_exceptions=True)
-
-# Сколько workers одновременно обрабатывают задачи? 3
-# Сколько элементов одновременно может обрабатываться? 3
-# В каком порядке элементы забираются из Queue? 0, 1, 2, 3, 4, 5
-# Что делает queue.join()? ждет пока queue обнулиться счетчик выполняющихся
-# Зачем после join() вызывается cancel()?  чтобы завершить task workers, и они дальше не ждали .get queue
-# Почему workers не завершаются сами после обработки шести элементов? из-за while true и await queue.get()
-# Зачем здесь return_exceptions=True? Чтобы наружу не выводились исключения Cancelled
-
-# Чем Queue принципиально отличается от gather()? Можно регулировать нагрузку на систему сколько конкурентных
-# задач будет выполняться
+# | Примитив  | Главная задача |
+# | Lock      | Допустить только одну task конкурентно |
+# | Semaphore | Допустить несколько task конкурентно |
+# | Event     | Ожидание разрешения на выполнение |
+# | Queue     | Синхронизированная асинхронная очередь |
+# Чем Semaphore отличается от Queue? Семафор дает ограничение на количество, а queue создает очередь для выполнения
