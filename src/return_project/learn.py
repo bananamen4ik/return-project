@@ -1,56 +1,59 @@
 import asyncio
-import time
 
 
-def sync_worker(name):
-    print(name, "start")
-    time.sleep(2)
-    print(name, "end")
+async def numbers():
+    yield 1
+    yield 2
+    yield 3
 
 
 async def main():
-    await asyncio.gather(
-        sync_worker("A"),
-        sync_worker("B"),
-    )
+    async for number in numbers():
+        print(number)
 
 
-asyncio.run(main())
+# Напечатает 1, 2, 3
+# И объясни, почему здесь используется async for, а не обычный for. - Потому что numbers async generator
 
 
-# Что произойдёт и сколько примерно будет выполняться?
-# Просто поочередно вызовется sync_worker("A"), sync_worker("B") и упадет программа: gather ожидает корутину
-# 4 секунды
+async def numbers():
+    for number in range(5):
+        await asyncio.sleep(1)
+        yield number
 
-# 2
+
 async def main():
-    await asyncio.gather(
-        asyncio.to_thread(sync_worker, "A"),
-        asyncio.to_thread(sync_worker, "B"),
-    )
+    async for number in numbers():
+        print(number)
+
 
 asyncio.run(main())
 
 # 3
-# Разница между await asyncio.sleep(2) и await asyncio.to_thread(sync_worker)
-# await asyncio.sleep(2) выполняется напрямую в том же event loop, а sync_worker будет выполняться в отдельном потоке
+async def events():
+    while True:
+        event = await get_event()
+        yield event
+
+# await get_event()
+#         ↓
+# evenv loop wait get_event
+#         ↓
+# yield event
+#         ↓
+# async for получает event, асинхронный генератор events приостанавливается
 
 # 4
-async def main():
-    task = asyncio.create_task(
-        asyncio.to_thread(sync_worker, "A")
-    )
+async def foo():
+    return [1, 2, 3]
 
-    await asyncio.sleep(0.1)
+async def foo():
+    yield 1
+    yield 2
+    yield 3
 
-    task.cancel()
+# Разница между ними в том, что первая функция это корутина, вторая же асинхронный генератор
 
-    try:
-        await task
-    except asyncio.CancelledError:
-        print("cancelled")
-
-# Получит ли sync_worker() CancelledError? Нет
-# Остановится ли time.sleep(2)? Нет
-# Что произойдёт с самим async task? Прервет ожидание sync_worker, но без взаимодействия на него
-# Может ли "A end" появиться после "cancelled"? Да
+# Что возвращает вызов foo() в каждом случае и как эти результаты получать?
+# Первый: объект корутины, получить правильно await foo() для результата
+# Второй: объект асинхронного генератора, правильно получить результаты async for x in foo()
