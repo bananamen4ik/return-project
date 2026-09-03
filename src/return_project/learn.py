@@ -1,100 +1,90 @@
-from collections import Counter, defaultdict, deque
-from functools import lru_cache, partial
-from itertools import chain
+import asyncio
+from contextvars import ContextVar
 
-requests = [
-    "GET",
-    "POST",
-    "GET",
-    "GET",
-    "DELETE",
-    "POST",
-    "GET",
-]
-
-counter = Counter(requests)
-
-print(counter["GET"])
-print(counter["POST"])
-print(counter.most_common(2))
-
-# 2
-users = [
-    ("Armen", "backend"),
-    ("Alex", "frontend"),
-    ("John", "backend"),
-    ("Kate", "frontend"),
-    ("Mike", "devops"),
-]
-
-def_dict = defaultdict(list)
-for user in users:
-    def_dict[user[1]].append(user[0])
-
-print(def_dict)
-
-# 3
-
-deq = deque()
-
-deq.append("A")
-deq.append("B")
-deq.append("C")
-
-deq.append("D")
-deq.appendleft("X")
-deq.popleft()
-deq.pop()
-
-print(deq)
+user_id = ContextVar("user_id")
 
 
-# 4
-
-@lru_cache(maxsize=10)
-def calculate(number):
-    print("calculate")
-    return number ** 2
+async def worker(name, value):
+    user_id.set(value)
+    await asyncio.sleep(0.1)
+    print(name, user_id.get())
 
 
-print(calculate(5))
-print(calculate(5))
-print(calculate(10))
-print(calculate(5))
+async def main():
+    await asyncio.gather(
+        worker("A", 100),
+        worker("B", 200),
+    )
 
 
-# два раза напечатается calculate
+asyncio.run(main())
+
+
+async def main():
+    user_id.set(10)
+    print(user_id.get())
+    token = user_id.set(20)
+    print(user_id.get())
+    user_id.reset(token)
+    print(user_id.get())
+
+
+asyncio.run(main())
+
+import inspect
+
+
+def normal():
+    pass
+
+
+async def async_func():
+    pass
+
+
+async def async_generator():
+    yield 1
+
+
+print(inspect.isfunction(normal))
+print(inspect.iscoroutinefunction(async_func))
+print(inspect.isasyncgenfunction(async_generator))
+
+
+def create_user(name: str, age: int = 18, active: bool = True):
+    pass
+
+
+for name, param in inspect.signature(create_user).parameters.items():
+    print(name, param.default, param.annotation)
+
+from typing import Protocol
+
 
 # 5
-def build_url(host, path, https):
-    https = "https" if https else "http"
-    return f"{https}://{host}{path}"
+class Storage(Protocol):
+    def save(self, data: str) -> None:
+        ...
 
 
-build_api_url = partial(build_url, host="api.example.com", https=True)
+class FileStorage:
+    def save(self, data: str) -> None:
+        ...
 
-print(build_api_url(path="/users"))
 
-# 6
-backend = ["Django", "FastAPI"]
-database = ["PostgreSQL", "Redis"]
-print(list(chain(backend, database)))
+class DatabaseStorage:
+    def save(self, data: str) -> None:
+        ...
 
-# 7
-logs = [
-    ("INFO", "server started"),
-    ("ERROR", "database failed"),
-    ("INFO", "request received"),
-    ("ERROR", "timeout"),
-    ("WARNING", "slow request"),
-    ("INFO", "response sent"),
-]
 
-counter = Counter(logs)
+def save_data(storage: Storage, data: str):
+    ...
 
-def_dict = defaultdict(list)
-for log in logs:
-    def_dict[log[0]].append(log[1])
 
-print(counter)
-print(def_dict)
+save_data(FileStorage, "file")
+save_data(DatabaseStorage, "db")
+
+# 1. Чем ContextVar отличается от глобальной переменной? В каждом контексте выполнения функции будет своя область видимости, в глобальной вся программа видит ее
+# 2. Для чего нужен inspect? Чтобы во время выполнения получить информацию о сигнатуре объекта или функции, информация параметров, тип и тд
+# 3. Чем Protocol отличается от обычного наследования? Protocol нужен чисто для статической типизации без наследования, обычное наследование на уровне программы и наследования
+# 4. В чём концептуальная разница между ABC и Protocol? В наследовании
