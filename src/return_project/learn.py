@@ -1,59 +1,83 @@
+# Разница между with resource(): и async with resource():
+# В том, что первый это синхронный context manager, второй асинхронный
+# И какие методы используются внутри обычного и async context manager:
+# И там, и там yield, внутри второго еще: await
+
+# 2
+from contextlib import asynccontextmanager
+
+
+@asynccontextmanager
+async def resource():
+    print("open")
+
+    try:
+        yield "hello"
+        print("after yield")
+    finally:
+        print("cleanup")
+
+
+async def main():
+    async with resource() as value:
+        print(value)
+
+
+# Напечатает: open, hello, after yield, cleanup
+# почему after yield выполняется после тела async with: потому что после завершения async with блока
+# происходит exit, который выполняет оставшийся код в контекстном менеджере
+
+# 3
 import asyncio
 
 
-async def numbers():
-    yield 1
-    yield 2
-    yield 3
+@asynccontextmanager
+async def connection():
+    print("connect")
+    await asyncio.sleep(1)
+
+    try:
+        yield "connection"
+    finally:
+        print("close")
 
 
 async def main():
-    async for number in numbers():
-        print(number)
-
-
-# Напечатает 1, 2, 3
-# И объясни, почему здесь используется async for, а не обычный for. - Потому что numbers async generator
-
-
-async def numbers():
-    for number in range(5):
-        await asyncio.sleep(1)
-        yield number
-
-
-async def main():
-    async for number in numbers():
-        print(number)
+    async with connection() as conn:
+        print(conn)
 
 
 asyncio.run(main())
 
-# 3
-async def events():
-    while True:
-        event = await get_event()
-        yield event
-
-# await get_event()
-#         ↓
-# evenv loop wait get_event
-#         ↓
-# yield event
-#         ↓
-# async for получает event, асинхронный генератор events приостанавливается
 
 # 4
-async def foo():
-    return [1, 2, 3]
+async def main():
+    try:
+        async with resource():
+            print("inside")
+            raise ValueError("boom")
+    except ValueError:
+        print("caught")
 
-async def foo():
-    yield 1
-    yield 2
-    yield 3
 
-# Разница между ними в том, что первая функция это корутина, вторая же асинхронный генератор
+# Что произойдёт здесь? Произойдет исключение которое обработается внешним ValueError, при этом resource правильно завершиться с finally.
+# Порядок будет: open, inside, cleanup, caught
+# И почему cleanup всё равно выполняется? Потому что finally выполняется в любом случае
 
-# Что возвращает вызов foo() в каждом случае и как эти результаты получать?
-# Первый: объект корутины, получить правильно await foo() для результата
-# Второй: объект асинхронного генератора, правильно получить результаты async for x in foo()
+# 5
+@asynccontextmanager
+async def resource():
+    resource = await acquire()
+
+    try:
+        yield resource
+    finally:
+        await release(resource)
+
+# Объяснение конструкции:
+# resource() - это асинхронный контекстный менеджер, aenter: код до yield, aexit все что после
+
+# Мне особенно интересно, чтобы ты объяснил роль await, yield и finally отдельно.
+# await ожидает acquire результат и передает управление event loop
+# yield возвращает значение в async with
+# finally служит cleanup, который выполнится даже если произойдет внутри async with исключение
