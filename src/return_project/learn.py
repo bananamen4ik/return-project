@@ -69,20 +69,20 @@ class Storage(Protocol):
 
 class FileStorage:
     def save(self, data: str) -> None:
-        ...
+        print(data)
 
 
 class DatabaseStorage:
     def save(self, data: str) -> None:
-        ...
+        print(data)
 
 
 def save_data(storage: Storage, data: str):
-    ...
+    storage.save(data)
 
 
-save_data(FileStorage, "file")
-save_data(DatabaseStorage, "db")
+save_data(FileStorage(), "file")
+save_data(DatabaseStorage(), "db")
 
 # 1. Чем ContextVar отличается от глобальной переменной? В каждом контексте выполнения функции будет своя область видимости, в глобальной вся программа видит ее
 # 2. Для чего нужен inspect? Чтобы во время выполнения получить информацию о сигнатуре объекта или функции, информация параметров, тип и тд
