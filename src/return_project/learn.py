@@ -1,104 +1,100 @@
-from dataclasses import dataclass, field
+from collections import Counter, defaultdict, deque
+from functools import lru_cache, partial
+from itertools import chain
 
+requests = [
+    "GET",
+    "POST",
+    "GET",
+    "GET",
+    "DELETE",
+    "POST",
+    "GET",
+]
 
-@dataclass
-class User:
-    id: int
-    name: str
-    email: str | None
+counter = Counter(requests)
 
+print(counter["GET"])
+print(counter["POST"])
+print(counter.most_common(2))
 
-user = User(
-    id=1,
-    name="Armen",
-    email=None,
-)
+# 2
+users = [
+    ("Armen", "backend"),
+    ("Alex", "frontend"),
+    ("John", "backend"),
+    ("Kate", "frontend"),
+    ("Mike", "devops"),
+]
 
-print(user)
+def_dict = defaultdict(list)
+for user in users:
+    def_dict[user[1]].append(user[0])
 
+print(def_dict)
 
-# Объясни, какие методы dataclass сгенерировал автоматически.
-# __repr__, __init__ и другие
+# 3
 
-@dataclass
-class User:
-    name: str
-    tags: list[str] = field(default_factory=list)
+deq = deque()
 
+deq.append("A")
+deq.append("B")
+deq.append("C")
 
-a = User("A")
-b = User("B")
+deq.append("D")
+deq.appendleft("X")
+deq.popleft()
+deq.pop()
 
-a.tags.append("python")
+print(deq)
 
-
-# Что произойдёт? У меня ValueError когда пытаюсь mutable [] напрямую назначить полю tags, но по идее тогда все бы
-# экземпляры имели общий объект
-# Когда field используются у всех в момент создания отдельные объекты mutable
-
-# Разница между str | None и str в том, что в первом случае ожидает str или None, во втором только str
-# И ответь, означает ли: age: int что Python обязательно выбросит ошибку, если передать строку.
-# Он не проверяет типы которые передаются в момент выполнения программы и до выполнения. Это лишь для инструментов
-# IDE, и других на проверку типов кода
 
 # 4
-# users: list[str] - ожидается список с str элементами
-# users: dict[int, str] - ожидается словарь где ключ int, значение str
-# users: Iterable[str] - любой итерируемый объект с str значением
-# Особенно объясни, чем Iterable[str] отличается от list[str]. iterable любой итерируемый объект с str значением,
-# list - именно список с str значением
+
+@lru_cache(maxsize=10)
+def calculate(number):
+    print("calculate")
+    return number ** 2
+
+
+print(calculate(5))
+print(calculate(5))
+print(calculate(10))
+print(calculate(5))
+
+
+# два раза напечатается calculate
 
 # 5
-# Callable[[int, str], bool]
-# Что должна принимать такая функция и что возвращать?
-# Принимает два аргумента, первый int, второй str, возвращает bool
+def build_url(host, path, https):
+    https = "https" if https else "http"
+    return f"{https}://{host}{path}"
 
-# Подходящая функция к примеру:
-def ex(num: int, name: str) -> bool:
-    return True
 
+build_api_url = partial(build_url, host="api.example.com", https=True)
+
+print(build_api_url(path="/users"))
 
 # 6
-from dataclasses import dataclass
-from collections.abc import Iterable, Callable
+backend = ["Django", "FastAPI"]
+database = ["PostgreSQL", "Redis"]
+print(list(chain(backend, database)))
 
+# 7
+logs = [
+    ("INFO", "server started"),
+    ("ERROR", "database failed"),
+    ("INFO", "request received"),
+    ("ERROR", "timeout"),
+    ("WARNING", "slow request"),
+    ("INFO", "response sent"),
+]
 
-@dataclass
-class Service:
-    id: int
-    name: str
-    price: float
-    description: str | None
-    tags: list[str]
+counter = Counter(logs)
 
+def_dict = defaultdict(list)
+for log in logs:
+    def_dict[log[0]].append(log[1])
 
-def find_services(
-        services: Iterable[Service],
-        predicate: Callable[[Service], bool],
-) -> list[Service]:
-    return [service for service in services if predicate(service)]
-
-
-def predicate(service: Service) -> bool:
-    return service.description is not None
-
-
-service1 = Service(
-    id=1,
-    name="Service 1",
-    price=10,
-    description="Service 1",
-    tags=["tag1", "tag2"],
-)
-
-service2 = Service(
-    id=2,
-    name="Service 2",
-    price=20,
-    description=None,
-    tags=["tag1", "tag2"],
-)
-
-services = [service1, service2]
-
-print(find_services(services, predicate))
+print(counter)
+print(def_dict)
